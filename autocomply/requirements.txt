@@ -4,4 +4,5 @@ scikit-learn
 numpy
 pandas
 plotly
-# Note: Add your document loading libraries here (e.g., pypdf, python-docx)
+PyMuPDF
+python-docx
