@@ -13,13 +13,15 @@ Usage
     python main.py policy.docx --frameworks iso27001,disp
 
     # Custom output directory
-    python main.py policy.pdf --frameworks iso27001,disp,e8 --output-dir ./reports
+    python main.py policy.pdf --frameworks iso27001,disp,e8_ml1,e8_ml2,e8_ml3 --output-dir ./reports
 
 Available framework keys
 ------------------------
     iso27001   — ISO 27001 Annex A (20 controls)
     disp       — Defence Industry Security Program (10 controls)
-    e8         — ASD Essential Eight Maturity Level 2 (8 controls)
+    e8_ml1     — ASD Essential Eight Maturity Level 1 (8 controls)
+    e8_ml2     — ASD Essential Eight Maturity Level 2 (8 controls)
+    e8_ml3     — ASD Essential Eight Maturity Level 3 (8 controls)
 """
 
 import argparse
@@ -32,7 +34,7 @@ from typing import Dict, List, Tuple
 sys.path.insert(0, str(Path(__file__).parent))
 
 from frameworks.disp_controls import get_controls as get_disp
-from frameworks.essential_eight import get_controls as get_e8
+from frameworks.essential_eight import get_controls as get_e8_ml2, get_ml1_controls as get_e8_ml1, get_ml3_controls as get_e8_ml3
 from frameworks.iso27001_controls import get_controls as get_iso27001
 from ingestion.document_loader import load_document
 from nlp.embedder import Embedder
@@ -55,7 +57,9 @@ logger = logging.getLogger(__name__)
 AVAILABLE_FRAMEWORKS: Dict[str, Tuple[str, callable]] = {
     "iso27001": ("ISO 27001",       get_iso27001),
     "disp":     ("DISP",            get_disp),
-    "e8":       ("Essential Eight", get_e8),
+    "e8_ml1":   ("Essential Eight ML1", get_e8_ml1),
+    "e8_ml2":   ("Essential Eight ML2", get_e8_ml2),
+    "e8_ml3":   ("Essential Eight ML3", get_e8_ml3),
 }
 
 _SEPARATOR = "=" * 62

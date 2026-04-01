@@ -16,7 +16,7 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).parent))
 
 from frameworks.disp_controls import get_controls as get_disp
-from frameworks.essential_eight import get_controls as get_e8
+from frameworks.essential_eight import get_controls as get_e8_ml2, get_ml1_controls as get_e8_ml1, get_ml3_controls as get_e8_ml3
 from frameworks.iso27001_controls import get_controls as get_iso27001
 from ingestion.document_loader import load_document_from_bytes
 from nlp.embedder import Embedder
@@ -495,7 +495,7 @@ def _controls_table(results: List[Dict[str, Any]]) -> str:
         """
 
     return f"""
-    <div style="border:1px solid rgba(255,255,255,0.07);border-radius:3px;overflow:hidden;margin-bottom:20px">
+    <div style="border:1px solid rgba(255,255,255,0.07);border-radius:3px;overflow-x:auto;margin-bottom:20px">
       <table style="width:100%;border-collapse:collapse;background:#1C2127">
         <thead>
           <tr style="background:#111418;border-bottom:1px solid rgba(255,255,255,0.1)">
@@ -560,17 +560,23 @@ PLOTLY_LAYOUT = dict(
 FRAMEWORKS: Dict[str, List[Dict[str, str]]] = {
     "ISO 27001":       get_iso27001(),
     "DISP":            get_disp(),
-    "Essential Eight": get_e8(),
+    "Essential Eight ML1": get_e8_ml1(),
+    "Essential Eight ML2": get_e8_ml2(),
+    "Essential Eight ML3": get_e8_ml3(),
 }
 FW_ICONS = {
     "ISO 27001":       "📋",
     "DISP":            "🇦🇺",
-    "Essential Eight": "🔐",
+    "Essential Eight ML1": "🔓",
+    "Essential Eight ML2": "🔐",
+    "Essential Eight ML3": "🔒",
 }
 FW_DESC = {
     "ISO 27001":       "International information security standard — Annex A controls covering governance, access, cryptography, operations, and more.",
     "DISP":            "Australian Defence Industry Security Program — physical, personnel, information and cyber security requirements.",
-    "Essential Eight": "ASD Essential Eight Maturity Level 2 — Australia's baseline cyber mitigation strategies.",
+    "Essential Eight ML1": "ASD Essential Eight Maturity Level 1 — Basic cyber mitigation strategies for small to medium enterprises.",
+    "Essential Eight ML2": "ASD Essential Eight Maturity Level 2 — Australia's baseline cyber mitigation strategies.",
+    "Essential Eight ML3": "ASD Essential Eight Maturity Level 3 — Advanced cyber mitigation strategies for high-risk environments.",
 }
 
 
@@ -896,7 +902,7 @@ def main() -> None:
             </tr>
             """
         st.markdown(f"""
-        <div style="border:1px solid rgba(255,255,255,0.07);border-radius:3px;overflow:hidden">
+        <div style="border:1px solid rgba(255,255,255,0.07);border-radius:3px;overflow-x:auto">
           <table style="width:100%;border-collapse:collapse;background:#1C2127">
             <thead>
               <tr style="background:#111418;border-bottom:1px solid rgba(255,255,255,0.1)">
