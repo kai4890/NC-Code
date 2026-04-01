@@ -650,9 +650,6 @@ def _render_fw_tab(
 def main() -> None:
     st.markdown(BLUEPRINT_CSS, unsafe_allow_html=True)
 
-    # Pre-load model
-    embedder, precomputed_embeddings = _load_embedder()
-
     # ── Sidebar ──────────────────────────────────────────────────────────────
     with st.sidebar:
         st.markdown(
@@ -748,6 +745,9 @@ def main() -> None:
 
     st.markdown(_topbar(uploaded.name, len(clauses)), unsafe_allow_html=True)
     st.success(f"Document parsed — {len(clauses):,} clauses extracted from {uploaded.name}")
+
+    # Load model and pre-compute embeddings only when analysis is triggered
+    embedder, precomputed_embeddings = _load_embedder()
 
     # ── 2. Embed clauses ──────────────────────────────────────────────────────
     with st.spinner("Computing semantic embeddings…"):
