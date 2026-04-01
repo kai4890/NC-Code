@@ -469,57 +469,34 @@ def _controls_table(results: List[Dict[str, Any]]) -> str:
         clause = clause.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         req    = r["control_text"].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
-        rows += f"""
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
-          <td style="padding:10px 12px;font-family:'JetBrains Mono',monospace;
-                     font-size:10px;font-weight:600;color:#4C90F0;
-                     white-space:nowrap;vertical-align:top">{r['control_id']}</td>
-          <td style="padding:10px 12px;font-size:11px;color:#ABB3BF;
-                     line-height:1.45;max-width:280px;vertical-align:top">{req}</td>
-          <td style="padding:10px 12px;text-align:center;vertical-align:top;white-space:nowrap">
-            <span style="background:{tag_bg};color:{colour};border:1px solid {colour}33;
-                         font-family:'JetBrains Mono',monospace;font-size:9px;
-                         font-weight:700;letter-spacing:0.1em;
-                         padding:2px 8px;border-radius:2px">{label}</span>
-          </td>
-          <td style="padding:10px 12px;text-align:center;vertical-align:top;
-                     font-family:'JetBrains Mono',monospace;font-size:10px;
-                     color:{colour};white-space:nowrap">
-            {r['confidence_score']:.0%}
-          </td>
-          <td style="padding:10px 12px;font-size:10px;color:#5F6B7C;
-                     font-style:italic;max-width:320px;line-height:1.45;vertical-align:top">
-            {clause if clause else '—'}
-          </td>
-        </tr>
-        """
+        rows += (
+            f"<tr style=\"border-bottom:1px solid rgba(255,255,255,0.05)\">\n"
+            f"<td style=\"padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:#4C90F0;white-space:nowrap;vertical-align:top\">{r['control_id']}</td>\n"
+            f"<td style=\"padding:10px 12px;font-size:11px;color:#ABB3BF;line-height:1.45;max-width:280px;vertical-align:top\">{req}</td>\n"
+            f"<td style=\"padding:10px 12px;text-align:center;vertical-align:top;white-space:nowrap\">\n"
+            f"<span style=\"background:{tag_bg};color:{colour};border:1px solid {colour}33;font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:0.1em;padding:2px 8px;border-radius:2px\">{label}</span>\n"
+            f"</td>\n"
+            f"<td style=\"padding:10px 12px;text-align:center;vertical-align:top;font-family:'JetBrains Mono',monospace;font-size:10px;color:{colour};white-space:nowrap\">{r['confidence_score']:.0%}</td>\n"
+            f"<td style=\"padding:10px 12px;font-size:10px;color:#5F6B7C;font-style:italic;max-width:320px;line-height:1.45;vertical-align:top\">{clause if clause else '—'}</td>\n"
+            f"</tr>\n"
+        )
 
-    return f"""
-    <div style="border:1px solid rgba(255,255,255,0.07);border-radius:3px;overflow-x:auto;margin-bottom:20px">
-      <table style="width:100%;border-collapse:collapse;background:#1C2127">
-        <thead>
-          <tr style="background:#111418;border-bottom:1px solid rgba(255,255,255,0.1)">
-            <th style="padding:9px 12px;font-family:'JetBrains Mono',monospace;font-size:9px;
-                       color:#5F6B7C;font-weight:600;letter-spacing:0.12em;
-                       text-transform:uppercase;text-align:left;white-space:nowrap">ID</th>
-            <th style="padding:9px 12px;font-family:'JetBrains Mono',monospace;font-size:9px;
-                       color:#5F6B7C;font-weight:600;letter-spacing:0.12em;
-                       text-transform:uppercase;text-align:left">Requirement</th>
-            <th style="padding:9px 12px;font-family:'JetBrains Mono',monospace;font-size:9px;
-                       color:#5F6B7C;font-weight:600;letter-spacing:0.12em;
-                       text-transform:uppercase;text-align:center;white-space:nowrap">Status</th>
-            <th style="padding:9px 12px;font-family:'JetBrains Mono',monospace;font-size:9px;
-                       color:#5F6B7C;font-weight:600;letter-spacing:0.12em;
-                       text-transform:uppercase;text-align:center;white-space:nowrap">Score</th>
-            <th style="padding:9px 12px;font-family:'JetBrains Mono',monospace;font-size:9px;
-                       color:#5F6B7C;font-weight:600;letter-spacing:0.12em;
-                       text-transform:uppercase;text-align:left">Best Match</th>
-          </tr>
-        </thead>
-        <tbody>{rows}</tbody>
-      </table>
-    </div>
-    """
+    return (
+        f"<div style=\"border:1px solid rgba(255,255,255,0.07);border-radius:3px;overflow-x:auto;margin-bottom:20px\">\n"
+        f"<table style=\"width:100%;border-collapse:collapse;background:#1C2127\">\n"
+        f"<thead>\n"
+        f"<tr style=\"background:#111418;border-bottom:1px solid rgba(255,255,255,0.1)\">\n"
+        f"<th style=\"padding:9px 12px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#5F6B7C;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;text-align:left;white-space:nowrap\">ID</th>\n"
+        f"<th style=\"padding:9px 12px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#5F6B7C;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;text-align:left\">Requirement</th>\n"
+        f"<th style=\"padding:9px 12px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#5F6B7C;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;text-align:center;white-space:nowrap\">Status</th>\n"
+        f"<th style=\"padding:9px 12px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#5F6B7C;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;text-align:center;white-space:nowrap\">Score</th>\n"
+        f"<th style=\"padding:9px 12px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#5F6B7C;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;text-align:left\">Best Match</th>\n"
+        f"</tr>\n"
+        f"</thead>\n"
+        f"<tbody>\n{rows}</tbody>\n"
+        f"</table>\n"
+        f"</div>"
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -648,7 +625,7 @@ def _render_fw_tab(
             showarrow=False, x=0.5, y=0.42,
         )
         fig.update_layout(**PLOTLY_LAYOUT, height=320, showlegend=True)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key=f"donut_{fw_name}")
 
         # Mini stat cards
         for status, bg, fg, label, items in [
@@ -658,11 +635,11 @@ def _render_fw_tab(
         ]:
             ids = ", ".join(r["control_id"] for r in items) or "—"
             st.markdown(
-                f"""<div style="background:{bg};border-left:2px solid {fg};border-radius:2px;
-                    padding:8px 12px;margin-bottom:6px;font-family:'JetBrains Mono',monospace">
-                  <div style="color:{fg};font-size:9px;font-weight:700;letter-spacing:0.1em">{label}</div>
-                  <div style="color:#738091;font-size:9px;margin-top:3px;line-height:1.4">{ids}</div>
-                </div>""",
+                f"<div style=\"background:{bg};border-left:2px solid {fg};border-radius:2px;"
+                f"padding:8px 12px;margin-bottom:6px;font-family:'JetBrains Mono',monospace\">\n"
+                f"<div style=\"color:{fg};font-size:9px;font-weight:700;letter-spacing:0.1em\">{label}</div>\n"
+                f"<div style=\"color:#738091;font-size:9px;margin-top:3px;line-height:1.4\">{ids}</div>\n"
+                f"</div>",
                 unsafe_allow_html=True,
             )
 
@@ -741,14 +718,17 @@ def main() -> None:
         st.markdown(_topbar(), unsafe_allow_html=True)
         # Landing page
         st.markdown(_section_label("Compliance Frameworks", "Select frameworks in the sidebar"), unsafe_allow_html=True)
-        cols = st.columns(3, gap="medium")
-        for col, (fw_name, icon) in zip(cols, FW_ICONS.items()):
-            with col:
-                st.markdown(
-                    _landing_card(icon, fw_name, len(FRAMEWORKS[fw_name]), FW_DESC[fw_name]),
-                    unsafe_allow_html=True,
-                )
-        st.markdown("<br>", unsafe_allow_html=True)
+        
+        items = list(FW_ICONS.items())
+        for i in range(0, len(items), 3):
+            cols = st.columns(3, gap="medium")
+            for col, (fw_name, icon) in zip(cols, items[i:i+3]):
+                with col:
+                    st.markdown(
+                        _landing_card(icon, fw_name, len(FRAMEWORKS[fw_name]), FW_DESC[fw_name]),
+                        unsafe_allow_html=True,
+                    )
+            st.markdown("<br>", unsafe_allow_html=True)
         st.info("Upload a security policy document (PDF or DOCX) and click **Run Analysis** to begin.")
         return
 
@@ -882,54 +862,34 @@ def main() -> None:
             s = summaries[fw]
             sc = s["compliance_score"]
             sc_colour = "#32A467" if sc >= 70 else "#EC9A3C" if sc >= 40 else "#E76A6E"
-            rows_html += f"""
-            <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
-              <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;
-                         font-size:10px;color:#4C90F0;white-space:nowrap">{FW_ICONS[fw]} {fw}</td>
-              <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;
-                         font-size:10px;color:#ABB3BF;text-align:center">{s['total_controls']}</td>
-              <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;
-                         font-size:10px;color:#32A467;text-align:center">
-                {s['covered_count']} <span style="color:#5F6B7C">({s['covered_pct']}%)</span></td>
-              <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;
-                         font-size:10px;color:#EC9A3C;text-align:center">
-                {s['partial_count']} <span style="color:#5F6B7C">({s['partial_pct']}%)</span></td>
-              <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;
-                         font-size:10px;color:#E76A6E;text-align:center">
-                {s['missing_count']} <span style="color:#5F6B7C">({s['missing_pct']}%)</span></td>
-              <td style="padding:10px 14px;font-family:'JetBrains Mono',monospace;
-                         font-size:12px;font-weight:700;color:{sc_colour};text-align:center">{sc}</td>
-            </tr>
-            """
-        st.markdown(f"""
-        <div style="border:1px solid rgba(255,255,255,0.07);border-radius:3px;overflow-x:auto">
-          <table style="width:100%;border-collapse:collapse;background:#1C2127">
-            <thead>
-              <tr style="background:#111418;border-bottom:1px solid rgba(255,255,255,0.1)">
-                <th style="padding:9px 14px;font-family:'JetBrains Mono',monospace;font-size:9px;
-                           color:#5F6B7C;font-weight:600;letter-spacing:0.12em;
-                           text-transform:uppercase;text-align:left">Framework</th>
-                <th style="padding:9px 14px;font-family:'JetBrains Mono',monospace;font-size:9px;
-                           color:#5F6B7C;font-weight:600;letter-spacing:0.12em;
-                           text-transform:uppercase;text-align:center">Total</th>
-                <th style="padding:9px 14px;font-family:'JetBrains Mono',monospace;font-size:9px;
-                           color:#32A467;font-weight:600;letter-spacing:0.12em;
-                           text-transform:uppercase;text-align:center">Covered</th>
-                <th style="padding:9px 14px;font-family:'JetBrains Mono',monospace;font-size:9px;
-                           color:#EC9A3C;font-weight:600;letter-spacing:0.12em;
-                           text-transform:uppercase;text-align:center">Partial</th>
-                <th style="padding:9px 14px;font-family:'JetBrains Mono',monospace;font-size:9px;
-                           color:#E76A6E;font-weight:600;letter-spacing:0.12em;
-                           text-transform:uppercase;text-align:center">Missing</th>
-                <th style="padding:9px 14px;font-family:'JetBrains Mono',monospace;font-size:9px;
-                           color:#5F6B7C;font-weight:600;letter-spacing:0.12em;
-                           text-transform:uppercase;text-align:center">Score</th>
-              </tr>
-            </thead>
-            <tbody>{rows_html}</tbody>
-          </table>
-        </div>
-        """, unsafe_allow_html=True)
+            rows_html += (
+                f"<tr style=\"border-bottom:1px solid rgba(255,255,255,0.05)\">\n"
+                f"<td style=\"padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:10px;color:#4C90F0;white-space:nowrap\">{FW_ICONS[fw]} {fw}</td>\n"
+                f"<td style=\"padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:10px;color:#ABB3BF;text-align:center\">{s['total_controls']}</td>\n"
+                f"<td style=\"padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:10px;color:#32A467;text-align:center\">{s['covered_count']} <span style=\"color:#5F6B7C\">({s['covered_pct']}%)</span></td>\n"
+                f"<td style=\"padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:10px;color:#EC9A3C;text-align:center\">{s['partial_count']} <span style=\"color:#5F6B7C\">({s['partial_pct']}%)</span></td>\n"
+                f"<td style=\"padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:10px;color:#E76A6E;text-align:center\">{s['missing_count']} <span style=\"color:#5F6B7C\">({s['missing_pct']}%)</span></td>\n"
+                f"<td style=\"padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:{sc_colour};text-align:center\">{sc}</td>\n"
+                f"</tr>\n"
+            )
+        st.markdown(
+            f"<div style=\"border:1px solid rgba(255,255,255,0.07);border-radius:3px;overflow-x:auto\">\n"
+            f"<table style=\"width:100%;border-collapse:collapse;background:#1C2127\">\n"
+            f"<thead>\n"
+            f"<tr style=\"background:#111418;border-bottom:1px solid rgba(255,255,255,0.1)\">\n"
+            f"<th style=\"padding:9px 14px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#5F6B7C;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;text-align:left\">Framework</th>\n"
+            f"<th style=\"padding:9px 14px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#5F6B7C;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;text-align:center\">Total</th>\n"
+            f"<th style=\"padding:9px 14px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#32A467;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;text-align:center\">Covered</th>\n"
+            f"<th style=\"padding:9px 14px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#EC9A3C;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;text-align:center\">Partial</th>\n"
+            f"<th style=\"padding:9px 14px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#E76A6E;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;text-align:center\">Missing</th>\n"
+            f"<th style=\"padding:9px 14px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#5F6B7C;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;text-align:center\">Score</th>\n"
+            f"</tr>\n"
+            f"</thead>\n"
+            f"<tbody>\n{rows_html}</tbody>\n"
+            f"</table>\n"
+            f"</div>",
+            unsafe_allow_html=True
+        )
 
         # Export
         st.markdown("<br>", unsafe_allow_html=True)
