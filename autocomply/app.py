@@ -53,6 +53,9 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+if "sidebar_visible" not in st.session_state:
+    st.session_state["sidebar_visible"] = True
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Palantir Blueprint dark-theme CSS injection
 # ─────────────────────────────────────────────────────────────────────────────
@@ -366,6 +369,9 @@ hr { border-color: var(--border) !important; margin: 1rem 0 !important; }
   text-transform: uppercase !important;
   letter-spacing: 0.08em !important;
 }
+
+[data-testid="stSidebar"][aria-expanded="false"] { display: none; }
+.sidebar-toggle { position: fixed; top: 14px; left: 14px; z-index: 999; }
 </style>
 """
 
@@ -852,10 +858,11 @@ def main() -> None:
         _doc_key = (uploaded.name, uploaded.size)
         if st.session_state.get("_doc_key") != _doc_key:
             st.session_state.pop("results", None)
+            st.session_state.pop("analysis_results", None)
             st.session_state["_doc_key"] = _doc_key
 
     # ── Landing page — shown only when there are no persisted results ─────────
-    if not analyse_btn and "results" not in st.session_state:
+    if not analyse_btn and "analysis_results" not in st.session_state:
         st.markdown(_topbar(), unsafe_allow_html=True)
         st.markdown(_section_label("Compliance Frameworks", "Select frameworks in the sidebar"), unsafe_allow_html=True)
 
@@ -931,13 +938,11 @@ def main() -> None:
         overall   = report["report_metadata"]["overall_compliance_score"]
 
         # Persist everything needed to render and export across reruns
-        st.session_state["results"] = {
+        st.session_state["analysis_results"] = {
             "report":        report,
             "all_results":   all_results,
             "summaries":     summaries,
             "overall":       overall,
-            "doc_name":      uploaded.name,
-            "active_fws":    active_fws,
             "quality_label": quality_label,
             "n_clean":       n_clean,
             "n_removed":     n_removed,
@@ -945,20 +950,23 @@ def main() -> None:
             "json_str":      export_json(report),
             "md_str":        export_markdown(report),
         }
+        st.session_state["selected_frameworks"] = active_fws
+        st.session_state["document_name"] = uploaded.name
+        st.session_state["clause_count"] = n_clean
 
     # ── Render from persisted session state ───────────────────────────────────
-    if "results" not in st.session_state:
+    if "analysis_results" not in st.session_state:
         return
 
-    state         = st.session_state["results"]
+    state         = st.session_state["analysis_results"]
     report        = state["report"]
     all_results   = state["all_results"]
     summaries     = state["summaries"]
     overall       = state["overall"]
-    doc_name      = state["doc_name"]
-    active_fws    = state["active_fws"]
+    doc_name      = st.session_state["document_name"]
+    active_fws    = st.session_state["selected_frameworks"]
     quality_label = state["quality_label"]
-    n_clean       = state["n_clean"]
+    n_clean       = st.session_state["clause_count"]
     n_removed     = state["n_removed"]
     removal_pct   = state["removal_pct"]
 
