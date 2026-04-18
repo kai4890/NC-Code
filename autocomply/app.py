@@ -53,9 +53,6 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-if "sidebar_visible" not in st.session_state:
-    st.session_state["sidebar_visible"] = True
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Palantir Blueprint dark-theme CSS injection
 # ─────────────────────────────────────────────────────────────────────────────
@@ -370,8 +367,6 @@ hr { border-color: var(--border) !important; margin: 1rem 0 !important; }
   letter-spacing: 0.08em !important;
 }
 
-[data-testid="stSidebar"][aria-expanded="false"] { display: none; }
-.sidebar-toggle { position: fixed; top: 14px; left: 14px; z-index: 999; }
 </style>
 """
 
