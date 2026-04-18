@@ -396,7 +396,7 @@ def _topbar(doc_name: str = "", clause_count: int = 0) -> str:
         '<div style="display:flex;align-items:center;gap:14px">'
         '<div style="color:#4C90F0;font-size:13px;font-weight:700;letter-spacing:0.16em">AUTO<span style="color:#F6F7F9">COMPLY</span></div>'
         '<div style="width:1px;height:18px;background:rgba(255,255,255,0.08)"></div>'
-        '<div style="color:#5F6B7C;font-size:9px;letter-spacing:0.14em;text-transform:uppercase">Defence Compliance Gap Analyser &nbsp;·&nbsp; v1.0</div>'
+        '<div style="color:#5F6B7C;font-size:9px;letter-spacing:0.14em;text-transform:uppercase">Defence Compliance Gap Analyser &nbsp;·&nbsp; v1.1</div>'
         '</div>'
         f'<div style="display:flex;align-items:center;gap:14px">{doc_badge}{status_html}&nbsp;&nbsp;{classification}</div>'
         '</div>'
@@ -851,7 +851,7 @@ def main() -> None:
             )
 
         st.markdown("---")
-        st.caption("v1.0 · Australian Defence Sector")
+        st.caption("v1.1 · Australian Defence Sector")
 
     # ── Invalidate cached results when a new file is uploaded ────────────────
     if uploaded is not None:
