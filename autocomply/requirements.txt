@@ -6,3 +6,4 @@ pandas
 plotly
 PyMuPDF
 python-docx
+anthropic

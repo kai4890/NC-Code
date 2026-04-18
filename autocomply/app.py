@@ -5,10 +5,12 @@ Run with:  streamlit run app.py
 """
 
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
+import anthropic
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -577,6 +579,131 @@ def _load_embedder():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Neo's Suggestions — AI compliance advisor
+# ─────────────────────────────────────────────────────────────────────────────
+
+_NEO_SYSTEM = (
+    "You are Neo, an expert AI compliance advisor specialising in Australian "
+    "defence sector cybersecurity frameworks (ISO 27001, DISP, ASD Essential Eight). "
+    "Your role is to provide concise, actionable compliance improvement recommendations. "
+    "Respond only with exactly 4 bullet points (using • as the bullet character). "
+    "Each bullet must be a single, specific, implementable action. "
+    "No preamble, no headings, no closing remarks — just the 4 bullets."
+)
+
+_STATUS_ICONS = {STATUS_COVERED: "✓", STATUS_PARTIAL: "→", STATUS_MISSING: "✗"}
+_STATUS_BORDER = {
+    STATUS_COVERED: "#32A467",
+    STATUS_PARTIAL:  "#EC9A3C",
+    STATUS_MISSING:  "#E76A6E",
+}
+_STATUS_BG = {
+    STATUS_COVERED: "rgba(50,164,103,0.07)",
+    STATUS_PARTIAL:  "rgba(236,154,60,0.07)",
+    STATUS_MISSING:  "rgba(231,106,110,0.07)",
+}
+
+
+def _call_neo_api(result: Dict[str, Any]) -> str:
+    """Call Claude and return the 4-bullet recommendation string."""
+    user_msg = (
+        f"Control ID: {result['control_id']}\n"
+        f"Framework: {result['framework']}\n"
+        f"Requirement: {result['control_text']}\n"
+        f"Coverage Status: {result['status']}\n"
+        f"Confidence Score: {result['confidence_score']}\n"
+        f"Best Matching Policy Clause:\n\"{result['best_matching_clause']}\"\n\n"
+        "Provide exactly 4 actionable bullet points to improve or confirm compliance "
+        "with this control for an Australian defence sector organisation."
+    )
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    client = anthropic.Anthropic(api_key=api_key)
+    response = client.messages.create(
+        model="claude-opus-4-7",
+        max_tokens=512,
+        thinking={"type": "adaptive"},
+        system=_NEO_SYSTEM,
+        messages=[{"role": "user", "content": user_msg}],
+    )
+    # Extract the text block (adaptive thinking may include a thinking block first)
+    for block in response.content:
+        if block.type == "text":
+            return block.text.strip()
+    return ""
+
+
+def _neo_suggestions_panel(results: List[Dict[str, Any]], fw_name: str) -> None:
+    """Render the Neo's Suggestions expander for a framework tab."""
+    if "neo_cache" not in st.session_state:
+        st.session_state["neo_cache"] = {}
+
+    with st.expander("◈ Neo's Suggestions — AI Compliance Advisor", expanded=False):
+        st.markdown(
+            "<div style=\"color:#5F6B7C;font-size:9px;letter-spacing:0.06em;"
+            "margin-bottom:12px\">AI-generated recommendations · powered by Claude · "
+            "verify before acting</div>",
+            unsafe_allow_html=True,
+        )
+
+        for result in results:
+            cid    = result["control_id"]
+            status = result["status"]
+            icon   = _STATUS_ICONS[status]
+            border = _STATUS_BORDER[status]
+            bg     = _STATUS_BG[status]
+            cache_key = (cid, result["confidence_score"])
+
+            label = f"{icon} {cid} — {result['control_text'][:72]}{'…' if len(result['control_text']) > 72 else ''}"
+
+            with st.expander(label, expanded=False):
+                st.markdown(
+                    f"<div style=\"border-left:3px solid {border};background:{bg};"
+                    f"border-radius:2px;padding:10px 14px;margin-bottom:4px;"
+                    f"font-family:'JetBrains Mono',monospace\">",
+                    unsafe_allow_html=True,
+                )
+
+                if status == STATUS_COVERED:
+                    st.markdown(
+                        f"<div style=\"color:#32A467;font-size:11px\">"
+                        f"✓ This control appears well-covered by your policy. "
+                        f"No immediate action required — maintain current practices and schedule periodic reviews."
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    if cache_key in st.session_state["neo_cache"]:
+                        bullets = st.session_state["neo_cache"][cache_key]
+                        _render_neo_bullets(bullets, border)
+                    else:
+                        btn_key = f"neo_btn_{fw_name}_{cid}"
+                        if st.button("Generate Neo's analysis ▶", key=btn_key):
+                            with st.spinner("Neo is analysing…"):
+                                try:
+                                    bullets = _call_neo_api(result)
+                                    st.session_state["neo_cache"][cache_key] = bullets
+                                    _render_neo_bullets(bullets, border)
+                                except Exception as exc:
+                                    st.error(f"Neo encountered an error: {exc}")
+
+                st.markdown("</div>", unsafe_allow_html=True)
+
+
+def _render_neo_bullets(text: str, accent: str) -> None:
+    """Render the 4-bullet Neo response."""
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    for line in lines:
+        bullet = line.lstrip("•-–·* ").strip()
+        if bullet:
+            st.markdown(
+                f"<div style=\"color:#C5CBD3;font-size:11px;line-height:1.6;"
+                f"padding:3px 0;font-family:'JetBrains Mono',monospace\">"
+                f"<span style=\"color:{accent};margin-right:6px\">•</span>{bullet}</div>",
+                unsafe_allow_html=True,
+            )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Per-framework tab renderer
 # ─────────────────────────────────────────────────────────────────────────────
 def _render_fw_tab(
@@ -595,6 +722,10 @@ def _render_fw_tab(
     m4.metric("✗ Missing",  f"{summary['missing_count']}  ({summary['missing_pct']}%)")
 
     st.markdown(_progress_bar(score), unsafe_allow_html=True)
+    st.markdown("<hr>", unsafe_allow_html=True)
+
+    # ── Neo's Suggestions ─────────────────────────────────────────────────
+    _neo_suggestions_panel(results, fw_name)
     st.markdown("<hr>", unsafe_allow_html=True)
 
     # ── Left: table  |  Right: donut ──────────────────────────────────────
