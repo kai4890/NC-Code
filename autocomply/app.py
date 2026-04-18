@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
-import anthropic
+import google.generativeai as genai
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -618,7 +618,7 @@ _STATUS_BG = {
 
 
 def _call_neo_api(result: Dict[str, Any]) -> str:
-    """Call Claude and return the 4-bullet recommendation string."""
+    """Call Gemini and return the 4-bullet recommendation string."""
     user_msg = (
         f"Control ID: {result['control_id']}\n"
         f"Framework: {result['framework']}\n"
@@ -629,20 +629,17 @@ def _call_neo_api(result: Dict[str, Any]) -> str:
         "Provide exactly 4 actionable bullet points to improve or confirm compliance "
         "with this control for an Australian defence sector organisation."
     )
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    client = anthropic.Anthropic(api_key=api_key)
-    response = client.messages.create(
-        model="claude-opus-4-7",
-        max_tokens=512,
-        thinking={"type": "adaptive"},
-        system=_NEO_SYSTEM,
-        messages=[{"role": "user", "content": user_msg}],
+    
+    api_key = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY", "")
+    genai.configure(api_key=api_key)
+    
+    model = genai.GenerativeModel(
+        model_name="gemini-1.5-flash",
+        system_instruction=_NEO_SYSTEM
     )
-    # Extract the text block (adaptive thinking may include a thinking block first)
-    for block in response.content:
-        if block.type == "text":
-            return block.text.strip()
-    return ""
+    
+    response = model.generate_content(user_msg)
+    return response.text.strip() if response.text else ""
 
 
 def _neo_suggestions_panel(results: List[Dict[str, Any]], fw_name: str) -> None:
@@ -653,7 +650,7 @@ def _neo_suggestions_panel(results: List[Dict[str, Any]], fw_name: str) -> None:
     with st.expander("◈ Neo's Suggestions — AI Compliance Advisor", expanded=False):
         st.markdown(
             "<div style=\"color:#5F6B7C;font-size:9px;letter-spacing:0.06em;"
-            "margin-bottom:12px\">AI-generated recommendations · powered by Claude · "
+            "margin-bottom:12px\">AI-generated recommendations · powered by Gemini · "
             "verify before acting</div>",
             unsafe_allow_html=True,
         )
