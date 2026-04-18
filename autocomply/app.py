@@ -647,12 +647,24 @@ def _call_neo_api(result: Dict[str, Any]) -> str:
     headers = {"Content-Type": "application/json"}
     
     try:
-        response = requests.post(url, json=payload, headers=headers)
+        response = requests.post(url, json=payload, headers=headers, timeout=20)
         response.raise_for_status()
         data = response.json()
-        return data["candidates"][0]["content"]["parts"][0]["text"].strip()
-    except Exception as e:
-        return f"Error connecting to Gemini API: {str(e)}"
+        
+        candidates = data.get("candidates", [])
+        if not candidates:
+            return "Neo could not generate recommendations at this time."
+
+        parts = candidates[0].get("content", {}).get("parts", [])
+        text_parts = [p.get("text", "") for p in parts if p.get("text")]
+        return "\n".join(text_parts).strip() or "Neo could not generate recommendations at this time."
+        
+    except requests.Timeout:
+        return "Neo timed out while generating recommendations."
+    except requests.RequestException as e:
+        return f"Neo request failed: {e}"
+    except Exception:
+        return "Neo returned an unexpected response."
 
 
 def _neo_suggestions_panel(results: List[Dict[str, Any]], fw_name: str) -> None:
