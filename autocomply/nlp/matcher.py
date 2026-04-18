@@ -1,15 +1,22 @@
 """
 Semantic matcher for AutoComply.
 
-Computes cosine similarity between pre-computed framework control embeddings
-and document clause embeddings to determine whether each compliance
-requirement is covered, partially covered, or missing in the uploaded policy.
+Computes a hybrid score from cosine-similarity embeddings and domain-keyword
+signals to determine whether each compliance requirement is covered, partially
+covered, or missing in the uploaded policy.
+
+Hybrid score
+------------
+    hybrid = 0.80 × embedding_score + 0.20 × keyword_score
+
+    Retrieval uses the top-3 candidate clauses per control (by embedding
+    similarity); the hybrid score selects the winner among those 3.
 
 Thresholds
 ----------
-    >= 0.65  →  COVERED   (green)  — high-confidence semantic match
-    0.40–0.65 →  PARTIAL   (amber)  — partial or indirect coverage
-    <  0.40  →  MISSING   (red)    — no meaningful coverage found
+    >= 0.75  →  COVERED   (green)  — high-confidence match
+    0.55–0.75 →  PARTIAL   (amber)  — partial or indirect coverage
+    <  0.55  →  MISSING   (red)    — no meaningful coverage found
 """
 
 import logging
@@ -17,6 +24,8 @@ from typing import Any, Dict, List
 
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
+
+from .rules import keyword_score
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +43,12 @@ STATUS_COLOURS: Dict[str, str] = {
     STATUS_MISSING:  "#E74C3C",  # Red
 }
 
-# Coverage thresholds
-_COVERED_THRESHOLD = 0.65
-_PARTIAL_THRESHOLD  = 0.40
+# Coverage thresholds (applied to hybrid score)
+_COVERED_THRESHOLD  = 0.75
+_PARTIAL_THRESHOLD  = 0.55
+_EMBEDDING_WEIGHT   = 0.80
+_KEYWORD_WEIGHT     = 0.20
+_TOP_K              = 3
 
 
 # ---------------------------------------------------------------------------
@@ -71,7 +83,9 @@ def match_controls_to_document(
                 "control_id":           str,
                 "control_text":         str,
                 "status":               "COVERED" | "PARTIAL" | "MISSING",
-                "confidence_score":     float,   # 0.0 – 1.0
+                "confidence_score":     float,   # hybrid score 0.0 – 1.0
+                "embedding_score":      float,   # raw cosine similarity 0.0 – 1.0
+                "keyword_score":        float,   # domain-term lexical score 0.0 – 1.0
                 "best_matching_clause": str,
                 "framework":            str,
             }
@@ -89,28 +103,51 @@ def match_controls_to_document(
         len(clauses),
     )
 
+    n_top = min(_TOP_K, len(clauses))
+
     results: List[Dict[str, Any]] = []
     for idx, control in enumerate(controls):
-        row          = sim_matrix[idx]
-        best_idx     = int(np.argmax(row))
-        best_score   = float(row[best_idx])
-        best_clause  = clauses[best_idx]
-        status       = _score_to_status(best_score)
+        row = sim_matrix[idx]
+        cid = control["control_id"]
+
+        # Retrieve top-5 candidate clause indices by embedding similarity
+        top_indices = np.argpartition(row, -n_top)[-n_top:]
+
+        best_hybrid  = -1.0
+        best_emb     = 0.0
+        best_kw      = 0.0
+        best_clause  = ""
+
+        for ci in top_indices:
+            emb_s  = float(row[ci])
+            kw_s   = keyword_score(cid, clauses[ci])
+            hybrid = _EMBEDDING_WEIGHT * emb_s + _KEYWORD_WEIGHT * kw_s
+            if hybrid > best_hybrid:
+                best_hybrid = hybrid
+                best_emb    = emb_s
+                best_kw     = kw_s
+                best_clause = clauses[ci]
+
+        status = _score_to_status(best_hybrid)
 
         results.append(
             {
-                "control_id":           control["control_id"],
+                "control_id":           cid,
                 "control_text":         control["control_text"],
                 "status":               status,
-                "confidence_score":     round(best_score, 4),
+                "confidence_score":     round(best_hybrid, 4),
+                "embedding_score":      round(best_emb, 4),
+                "keyword_score":        round(best_kw, 4),
                 "best_matching_clause": best_clause,
                 "framework":            control["framework"],
             }
         )
         logger.debug(
-            "%s  score=%.4f  status=%s",
-            control["control_id"],
-            best_score,
+            "%s  hybrid=%.4f  emb=%.4f  kw=%.4f  status=%s",
+            cid,
+            best_hybrid,
+            best_emb,
+            best_kw,
             status,
         )
 
@@ -138,6 +175,8 @@ def _build_missing_results(controls: List[Dict[str, str]]) -> List[Dict[str, Any
             "control_text":         c["control_text"],
             "status":               STATUS_MISSING,
             "confidence_score":     0.0,
+            "embedding_score":      0.0,
+            "keyword_score":        0.0,
             "best_matching_clause": "No document clauses could be extracted.",
             "framework":            c["framework"],
         }

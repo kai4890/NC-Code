@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Module-level singleton — one model instance per Python process
 # ---------------------------------------------------------------------------
-MODEL_NAME = "all-MiniLM-L6-v2"
+MODEL_NAME = "BAAI/bge-small-en-v1.5"
 _model: Optional[SentenceTransformer] = None
 
 
