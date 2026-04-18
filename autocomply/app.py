@@ -367,6 +367,18 @@ hr { border-color: var(--border) !important; margin: 1rem 0 !important; }
   letter-spacing: 0.08em !important;
 }
 
+/* ── Always visible sidebar ───────────────────────────────────────────── */
+[data-testid="stSidebarCollapseButton"] { display: none !important; }
+[data-testid="collapsedControl"] { display: none !important; }
+[data-testid="stSidebar"] {
+  display: block !important;
+  transform: none !important;
+  min-width: 21rem !important;
+}
+section[data-testid="stSidebar"] > div {
+  width: 21rem !important;
+}
+
 </style>
 """
 
