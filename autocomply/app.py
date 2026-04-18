@@ -10,9 +10,9 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
-import google.generativeai as genai
 import pandas as pd
 import plotly.graph_objects as go
+import requests
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -631,15 +631,28 @@ def _call_neo_api(result: Dict[str, Any]) -> str:
     )
     
     api_key = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY", "")
-    genai.configure(api_key=api_key)
     
-    model = genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
-        system_instruction=_NEO_SYSTEM
-    )
+    model = "gemini-2.5-flash-lite"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
     
-    response = model.generate_content(user_msg)
-    return response.text.strip() if response.text else ""
+    payload = {
+        "system_instruction": {
+            "parts": [{"text": _NEO_SYSTEM}]
+        },
+        "contents": [
+            {"parts": [{"text": user_msg}]}
+        ]
+    }
+    
+    headers = {"Content-Type": "application/json"}
+    
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+    except Exception as e:
+        return f"Error connecting to Gemini API: {str(e)}"
 
 
 def _neo_suggestions_panel(results: List[Dict[str, Any]], fw_name: str) -> None:
