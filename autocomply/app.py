@@ -18,6 +18,12 @@ sys.path.insert(0, str(Path(__file__).parent))
 from frameworks.disp_controls import get_controls as get_disp
 from frameworks.essential_eight import get_controls as get_e8_ml2, get_ml1_controls as get_e8_ml1, get_ml3_controls as get_e8_ml3
 from frameworks.iso27001_controls import get_controls as get_iso27001
+from ingestion.document_filter import (
+    LABEL_GENUINE,
+    LABEL_PARTIAL,
+    LABEL_TEMPLATE,
+    filter_boilerplate,
+)
 from ingestion.document_loader import load_document_from_bytes
 from nlp.embedder import Embedder
 from nlp.matcher import (
@@ -710,12 +716,18 @@ def main() -> None:
         st.markdown("---")
         st.caption("v1.0 · Australian Defence Sector")
 
-    # ── Top bar ───────────────────────────────────────────────────────────────
-    if not analyse_btn or uploaded is None:
+    # ── Invalidate cached results when a new file is uploaded ────────────────
+    if uploaded is not None:
+        _doc_key = (uploaded.name, uploaded.size)
+        if st.session_state.get("_doc_key") != _doc_key:
+            st.session_state.pop("results", None)
+            st.session_state["_doc_key"] = _doc_key
+
+    # ── Landing page — shown only when there are no persisted results ─────────
+    if not analyse_btn and "results" not in st.session_state:
         st.markdown(_topbar(), unsafe_allow_html=True)
-        # Landing page
         st.markdown(_section_label("Compliance Frameworks", "Select frameworks in the sidebar"), unsafe_allow_html=True)
-        
+
         items = list(FW_ICONS.items())
         for i in range(0, len(items), 3):
             cols = st.columns(3, gap="medium")
@@ -729,46 +741,111 @@ def main() -> None:
         st.info("Upload a security policy document (PDF or DOCX) and click **Run Analysis** to begin.")
         return
 
-    # ── 1. Extract clauses ────────────────────────────────────────────────────
-    with st.spinner("Extracting document clauses…"):
-        try:
-            clauses = load_document_from_bytes(uploaded.read(), uploaded.name)
-        except Exception as exc:
+    # ── Run analysis pipeline (only when the button was just clicked) ─────────
+    if analyse_btn and uploaded is not None:
+
+        # 1. Extract clauses
+        with st.spinner("Extracting document clauses…"):
+            try:
+                clauses = load_document_from_bytes(uploaded.read(), uploaded.name)
+            except Exception as exc:
+                st.markdown(_topbar(), unsafe_allow_html=True)
+                st.error(f"Document load failed: {exc}")
+                return
+
+        if not clauses:
             st.markdown(_topbar(), unsafe_allow_html=True)
-            st.error(f"Document load failed: {exc}")
+            st.error("No text extracted from document — check the file is not scanned/image-only.")
             return
 
-    if not clauses:
-        st.markdown(_topbar(), unsafe_allow_html=True)
-        st.error("No text extracted from document — check the file is not scanned/image-only.")
+        # 1b. Filter boilerplate
+        cleaned_clauses, removed_clauses, quality_label = filter_boilerplate(clauses)
+
+        if not cleaned_clauses:
+            st.markdown(_topbar(), unsafe_allow_html=True)
+            st.error(
+                "No policy content found after filtering — the document appears to be "
+                "entirely template or instructional text. Upload a completed policy document."
+            )
+            return
+
+        n_original  = len(clauses)
+        n_removed   = len(removed_clauses)
+        n_clean     = len(cleaned_clauses)
+        removal_pct = round(n_removed / n_original * 100) if n_original else 0
+        clauses     = cleaned_clauses
+
+        # Load model
+        embedder, precomputed_embeddings = _load_embedder()
+
+        # 2. Embed clauses
+        with st.spinner("Computing semantic embeddings…"):
+            try:
+                clause_embs = embedder.embed_clauses(clauses)
+            except Exception as exc:
+                st.error(f"Embedding failed: {exc}")
+                return
+
+        # 3. Gap analysis
+        all_results: Dict[str, List[Dict[str, Any]]] = {}
+        with st.spinner("Running compliance gap analysis…"):
+            for fw_name in active_fws:
+                all_results[fw_name] = match_controls_to_document(
+                    FRAMEWORKS[fw_name], precomputed_embeddings[fw_name], clauses, clause_embs
+                )
+
+        # 4. Build report and pre-serialise export strings
+        report    = build_full_report(all_results, uploaded.name)
+        summaries = report["framework_summaries"]
+        overall   = report["report_metadata"]["overall_compliance_score"]
+
+        # Persist everything needed to render and export across reruns
+        st.session_state["results"] = {
+            "report":        report,
+            "all_results":   all_results,
+            "summaries":     summaries,
+            "overall":       overall,
+            "doc_name":      uploaded.name,
+            "active_fws":    active_fws,
+            "quality_label": quality_label,
+            "n_clean":       n_clean,
+            "n_removed":     n_removed,
+            "removal_pct":   removal_pct,
+            "json_str":      export_json(report),
+            "md_str":        export_markdown(report),
+        }
+
+    # ── Render from persisted session state ───────────────────────────────────
+    if "results" not in st.session_state:
         return
 
-    st.markdown(_topbar(uploaded.name, len(clauses)), unsafe_allow_html=True)
-    st.success(f"Document parsed — {len(clauses):,} clauses extracted from {uploaded.name}")
+    state         = st.session_state["results"]
+    report        = state["report"]
+    all_results   = state["all_results"]
+    summaries     = state["summaries"]
+    overall       = state["overall"]
+    doc_name      = state["doc_name"]
+    active_fws    = state["active_fws"]
+    quality_label = state["quality_label"]
+    n_clean       = state["n_clean"]
+    n_removed     = state["n_removed"]
+    removal_pct   = state["removal_pct"]
 
-    # Load model and pre-compute embeddings only when analysis is triggered
-    embedder, precomputed_embeddings = _load_embedder()
+    st.markdown(_topbar(doc_name, n_clean), unsafe_allow_html=True)
 
-    # ── 2. Embed clauses ──────────────────────────────────────────────────────
-    with st.spinner("Computing semantic embeddings…"):
-        try:
-            clause_embs = embedder.embed_clauses(clauses)
-        except Exception as exc:
-            st.error(f"Embedding failed: {exc}")
-            return
-
-    # ── 3. Gap analysis ───────────────────────────────────────────────────────
-    all_results: Dict[str, List[Dict[str, Any]]] = {}
-    with st.spinner("Running compliance gap analysis…"):
-        for fw_name in active_fws:
-            all_results[fw_name] = match_controls_to_document(
-                FRAMEWORKS[fw_name], precomputed_embeddings[fw_name], clauses, clause_embs
-            )
-
-    # ── 4. Build report ───────────────────────────────────────────────────────
-    report    = build_full_report(all_results, uploaded.name)
-    summaries = report["framework_summaries"]
-    overall   = report["report_metadata"]["overall_compliance_score"]
+    if quality_label == LABEL_GENUINE:
+        st.success(f"Document parsed — {n_clean:,} policy clauses analysed.")
+    elif quality_label == LABEL_PARTIAL:
+        st.warning(
+            f"Warning: {n_removed:,} template / boilerplate clauses detected and excluded. "
+            f"Results based on {n_clean:,} genuine policy clauses."
+        )
+    else:
+        st.error(
+            f"Template document detected — {removal_pct}% of content appears to be "
+            f"instructional rather than policy. Scores may not be meaningful. "
+            f"Upload a completed policy document for accurate analysis."
+        )
 
     # ── 5. Tabs ───────────────────────────────────────────────────────────────
     tab_labels = ["  ◈ Summary  "] + [
@@ -810,7 +887,7 @@ def main() -> None:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Stacked bar + radar side by side
+        # Stacked bar + missing heatmap
         chart_left, chart_right = st.columns(2, gap="large")
 
         with chart_left:
@@ -833,26 +910,60 @@ def main() -> None:
             layout_bar = {**PLOTLY_LAYOUT, "barmode": "stack", "height": 300}
             layout_bar["yaxis"] = {**layout_bar.get("yaxis", {}), "range": [0, 100], "ticksuffix": "%"}
             fig_bar.update_layout(**layout_bar)
-            st.plotly_chart(fig_bar, use_container_width=True)
+            st.plotly_chart(
+                fig_bar,
+                use_container_width=True,
+                config={"staticPlot": True},
+            )
 
         with chart_right:
-            st.markdown(_section_label("Missing Controls Heatmap"), unsafe_allow_html=True)
-            # Bar chart of missing counts per framework
-            fig_miss = go.Figure(go.Bar(
-                x=active_fws,
-                y=[summaries[fw]["missing_count"] for fw in active_fws],
-                marker_color="#E76A6E",
-                marker_line_color="rgba(0,0,0,0.3)",
-                marker_line_width=0.5,
-                text=[summaries[fw]["missing_count"] for fw in active_fws],
-                textposition="outside",
-                textfont=dict(size=10, color="#FA999C", family="JetBrains Mono, monospace"),
-                hovertemplate="%{x}: %{y} missing<extra></extra>",
-            ))
-            layout_miss = {**PLOTLY_LAYOUT, "height": 300}
-            layout_miss["yaxis"] = {**layout_miss.get("yaxis", {}), "title": "Missing Controls"}
-            fig_miss.update_layout(**layout_miss)
-            st.plotly_chart(fig_miss, use_container_width=True)
+            st.markdown(_section_label("Controls Breakdown"), unsafe_allow_html=True)
+            status_cfg = {
+                STATUS_COVERED: ("#1C4532", "#32A467", "#72CA9B", "✓ COVERED"),
+                STATUS_PARTIAL:  ("#3D2405", "#EC9A3C", "#FBB360", "~ PARTIAL"),
+                STATUS_MISSING:  ("#3B1219", "#E76A6E", "#FA999C", "✗ MISSING"),
+            }
+            breakdown_rows = ""
+            for fw in active_fws:
+                for r in all_results[fw]:
+                    row_bg, border_col, text_col, badge_label = status_cfg.get(
+                        r["status"], ("#2F343C", "#ABB3BF", "#ABB3BF", r["status"])
+                    )
+                    ctrl_name = r["control_text"]
+                    if len(ctrl_name) > 80:
+                        ctrl_name = ctrl_name[:80] + "…"
+                    ctrl_name = ctrl_name.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                    breakdown_rows += (
+                        f"<tr style=\"border-bottom:1px solid rgba(255,255,255,0.04);background:{row_bg}22\">\n"
+                        f"<td style=\"padding:7px 10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#4C90F0;white-space:nowrap;vertical-align:middle\">{r['control_id']}</td>\n"
+                        f"<td style=\"padding:7px 10px;font-size:10px;color:#8F99A8;max-width:260px;vertical-align:middle;line-height:1.35\">{ctrl_name}</td>\n"
+                        f"<td style=\"padding:7px 10px;text-align:center;vertical-align:middle;white-space:nowrap\">"
+                        f"<span style=\"background:{row_bg};color:{text_col};border:1px solid {border_col}44;"
+                        f"font-family:'JetBrains Mono',monospace;font-size:8px;font-weight:700;"
+                        f"letter-spacing:0.1em;padding:2px 6px;border-radius:2px\">{badge_label}</span>"
+                        f"</td>\n"
+                        f"<td style=\"padding:7px 10px;font-family:'JetBrains Mono',monospace;font-size:10px;"
+                        f"color:{text_col};text-align:center;vertical-align:middle;white-space:nowrap\">"
+                        f"{r['confidence_score']:.0%}</td>\n"
+                        f"</tr>\n"
+                    )
+            st.markdown(
+                f"<div style=\"border:1px solid rgba(255,255,255,0.07);border-radius:3px;"
+                f"overflow-y:auto;max-height:320px\">\n"
+                f"<table style=\"width:100%;border-collapse:collapse;background:#1C2127\">\n"
+                f"<thead style=\"position:sticky;top:0;z-index:1\">\n"
+                f"<tr style=\"background:#111418;border-bottom:1px solid rgba(255,255,255,0.1)\">\n"
+                f"<th style=\"padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:8px;color:#5F6B7C;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;text-align:left;white-space:nowrap\">ID</th>\n"
+                f"<th style=\"padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:8px;color:#5F6B7C;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;text-align:left\">Control</th>\n"
+                f"<th style=\"padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:8px;color:#5F6B7C;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;text-align:center;white-space:nowrap\">Status</th>\n"
+                f"<th style=\"padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:8px;color:#5F6B7C;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;text-align:center;white-space:nowrap\">Score</th>\n"
+                f"</tr>\n"
+                f"</thead>\n"
+                f"<tbody>\n{breakdown_rows}</tbody>\n"
+                f"</table>\n"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
 
         # Summary table
         st.markdown("<hr>", unsafe_allow_html=True)
@@ -891,15 +1002,15 @@ def main() -> None:
             unsafe_allow_html=True
         )
 
-        # Export
+        # Export — data strings pre-computed at analysis time, no work done here
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown(_section_label("Export Report"), unsafe_allow_html=True)
-        stem = uploaded.name.rsplit(".", 1)[0]
+        stem = doc_name.rsplit(".", 1)[0]
         dl1, dl2, _ = st.columns([1, 1, 2])
         with dl1:
             st.download_button(
                 "⬇ JSON Report",
-                data=export_json(report),
+                data=state["json_str"],
                 file_name=f"autocomply_{stem}.json",
                 mime="application/json",
                 use_container_width=True,
@@ -907,7 +1018,7 @@ def main() -> None:
         with dl2:
             st.download_button(
                 "⬇ Markdown Report",
-                data=export_markdown(report),
+                data=state["md_str"],
                 file_name=f"autocomply_{stem}.md",
                 mime="text/markdown",
                 use_container_width=True,
